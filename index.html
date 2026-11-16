@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bridge Game Yönlendirici</title>
+    
+    <!-- 1. OPTİMİZASYON: Google sunucusuyla ön bağlantı kurarak DNS/SSL gecikmesini yok et -->
+    <link rel="preconnect" href="https://script.google.com">
+    <link rel="dns-prefetch" href="https://script.google.com">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            text-align: center;
+            padding-top: 60px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 12px 0;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #stop-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+        #stop-btn:hover { background-color: #c82333; }
+        
+        #install-btn {
+            background-color: #28a745;
+            color: white;
+            display: none;
+        }
+        #install-btn:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Uygulama Yükleniyor...</h2>
+        <p id="status-text">Birkaç saniye içinde oyun ekranına yönlendirileceksiniz.</p>
+        
+        <button id="stop-btn" class="btn">Yönlendirmeyi Durdur</button>
+        <button id="install-btn" class="btn">Ana Ekrana Kısayol Ekle</button>
+    </div>
+
+    <script>
+        const GAS_URL = "BURAYA_GAS_WEB_APP_URLINIZI_YAZIN";
+        
+        let deferredPrompt = null;
+        let isStopped = false;
+
+        // 2. OPTİMİZASYON: Sayfa açıldığı an arka planda GAS sunucusunu uykudan uyandır (Warm-up)
+        // Kullanıcı 2 sn beklerken sunucu arkada hazır hale gelir.
+        window.addEventListener('DOMContentLoaded', () => {
+            fetch(GAS_URL, { mode: 'no-cors' }).catch(() => {});
+        });
+
+        // 3 saniyelik zamanlayıcı (Durdurma payı bırakmak için 2 yerine idealdir)
+        let redirectTimer = setTimeout(() => {
+            if (!isStopped) {
+                window.location.href = GAS_URL;
+            }
+        }, 2000);
+
+        const stopBtn = document.getElementById('stop-btn');
+        const installBtn = document.getElementById('install-btn');
+        const statusText = document.getElementById('status-text');
+
+        stopBtn.addEventListener('click', () => {
+            isStopped = true;
+            clearTimeout(redirectTimer);
+            
+            statusText.innerText = "Yönlendirme durduruldu. Uygulamayı ana ekranınıza ekleyebilirsiniz.";
+            stopBtn.style.display = 'none';
+
+            if (deferredPrompt) {
+                installBtn.style.display = 'block';
+            }
+        });
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            if (isStopped) {
+                installBtn.style.display = 'block';
+            }
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            installBtn.style.display = 'none';
+        });
+    </script>
+</body>
+</html>
