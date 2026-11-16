@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bridge Game Yönlendirici</title>
+    
+    <!-- 1. Kısayol Butonu İçin Zorunlu Manifest -->
+    <link rel="manifest" href="./manifest.json">
+
+    <!-- 2. Hız Optimizasyonu: DNS ve SSL Ön Bağlantısı -->
+    <link rel="preconnect" href="https://script.google.com">
+    <link rel="dns-prefetch" href="https://script.google.com">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            text-align: center;
+            padding-top: 60px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 12px 0;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #stop-btn { background-color: #dc3545; color: white; }
+        #stop-btn:hover { background-color: #c82333; }
+        
+        #install-btn {
+            background-color: #28a745;
+            color: white;
+            display: none;
+        }
+        #install-btn:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Uygulama Yükleniyor...</h2>
+        <p id="status-text">Birkaç saniye içinde oyun ekranına yönlendirileceksiniz.</p>
+        
+        <button id="stop-btn" class="btn">Yönlendirmeyi Durdur</button>
+        <button id="install-btn" class="btn">Ana Ekrana Kısayol Ekle</button>
+    </div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbw7jGgQDYHKZ1Zj5B6lxvLHWBJoUDUiQ17Ml1pTe2nk8IiSrFOJUOTvHdV8wi1kC6Ug/exec";
+        
+        // Service Worker Kaydı (Butonun tetiklenmesi için şart)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .catch(err => console.log('SW kayıt hatası:', err));
+            });
+        }
+
+        // GAS Sunucusunu Arka Planda Uyandırma (Warm-up)
+        window.addEventListener('DOMContentLoaded', () => {
+            fetch(GAS_URL, { mode: 'no-cors' }).catch(() => {});
+        });
+
+        const ua = navigator.userAgent.toLowerCase();
+        const isIosOrSafari = (/iphone|ipad|ipod/.test(ua)) || (/safari/.test(ua) && !/chrome|crios|fxios/.test(ua));
+
+        let deferredPrompt = null;
+        let isStopped = false;
+
+        let redirectTimer = setTimeout(() => {
+            if (!isStopped) {
+                window.location.href = GAS_URL;
+            }
+        }, 2000);
+
+        const stopBtn = document.getElementById('stop-btn');
+        const installBtn = document.getElementById('install-btn');
+        const statusText = document.getElementById('status-text');
+
+        stopBtn.addEventListener('click', () => {
+            isStopped = true;
+            clearTimeout(redirectTimer);
+            
+            statusText.innerText = "Yönlendirme durduruldu. Uygulamayı ana ekranınıza ekleyebilirsiniz.";
+            stopBtn.style.display = 'none';
+
+            if (!isIosOrSafari && deferredPrompt) {
+                installBtn.style.display = 'block';
+            }
+        });
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            if (isStopped && !isIosOrSafari) {
+                installBtn.style.display = 'block';
+            }
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            installBtn.style.display = 'none';
+        });
+    </script>
+</body>
+</html>
